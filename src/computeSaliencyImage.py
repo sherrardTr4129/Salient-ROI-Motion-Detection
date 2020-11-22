@@ -47,13 +47,50 @@ def computeSaliencyImg(img):
 
     return saliencyMap
 
-if(__name__ == "__main__"):
-    # grab test image filenames
-    testImages = glob.glob("/home/sherrardtr/Desktop/RBE526-Individual-Alg/testImages/*")
+def computeObjectMap(colorImage, saliencyMap, threshVal):
 
-    # compute saliency image and display it
-    for imgFile in testImages:
-        img = cv2.imread(imgFile, 0)
-        saliencyImg = computeSaliencyImg(img)
-        plt.imshow(saliencyImg, cmap="gray")
-        plt.show()
+    # create dilation kernel
+    dilateKernel = np.ones((10,10),np.uint8)
+
+    # threshold saliency map image
+    ret, thresh = cv2.threshold(saliencyMap, threshVal, 255, cv2.THRESH_BINARY)
+
+    # convert to uint8 image type using numpy
+    thresh = np.uint8(thresh)
+
+    # dilate image using dilateKernel. This should hopefully blow up the
+    # detected saliency points to the point that they can be grouped together 
+    dilation = cv2.dilate(thresh, dilateKernel, iterations = 20)
+
+    # find contours in dilated image
+    contours, hierarchy = cv2.findContours(dilation, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    # draw contours on color image
+    cv2.drawContours(colorImage, contours, -1, (0, 255, 0), 3)
+    return colorImage
+
+if(__name__ == "__main__"):
+    capObj = cv2.VideoCapture(0)
+    threshVal = 100
+
+    while(True):
+        # read frame from camera
+        ret, frame = capObj.read()
+
+        # convert to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # compute saliency image from grayscale image
+        saliencyMap = computeSaliencyImg(gray)
+
+        # compute object map
+        objectMap = computeObjectMap(frame, saliencyMap, threshVal)
+
+        # display object map image
+        cv2.imshow("object map", objectMap)
+        if(cv2.waitKey(1) & 0xFF == ord('q')):
+            break
+
+    cv2.destroyAllWindows()
+    capObj.release()
+
