@@ -51,20 +51,20 @@ def computeSaliencyImg(img):
 
     return saliencyMap
 
-def computeObjectMap(colorImage, saliencyMap, threshVal):
+def computeObjectMap(colorImage, saliencyMap, sizeThreshVal):
 
     # create dilation kernel
-    dilateKernel = np.ones((10,10),np.uint8)
-
-    # threshold saliency map image
-    ret, thresh = cv2.threshold(saliencyMap, threshVal, 255, cv2.THRESH_BINARY)
+    dilateKernel = np.ones((3,3),np.uint8)
 
     # convert to uint8 image type using numpy
-    thresh = np.uint8(thresh)
+    saliencyMap = np.uint8(saliencyMap)
+
+    # threshold saliency map image
+    ret, thresh = cv2.threshold(saliencyMap, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 
     # dilate image using dilateKernel. This should hopefully blow up the
     # detected saliency points to the point that they can be grouped together 
-    dilation = cv2.dilate(thresh, dilateKernel, iterations = 14)
+    dilation = cv2.dilate(thresh, dilateKernel, iterations = 2)
 
     # find contours in dilated image
     contours, hierarchy = cv2.findContours(dilation, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -73,7 +73,7 @@ def computeObjectMap(colorImage, saliencyMap, threshVal):
     goodContours = []
     for cont in contours:
         area = cv2.contourArea(cont)
-        if(area > 7000):
+        if(area > sizeThreshVal):
             goodContours.append(cont)
 
     # draw contours on color image
@@ -88,7 +88,7 @@ def computeObjectMap(colorImage, saliencyMap, threshVal):
 
 if(__name__ == "__main__"):
     capObj = cv2.VideoCapture(0)
-    threshVal = 180
+    sizeThreshVal = 1000
 
     while(True):
         # read frame from camera
@@ -101,7 +101,7 @@ if(__name__ == "__main__"):
         saliencyMap = computeSaliencyImg(gray)
 
         # compute object map
-        objectMap = computeObjectMap(frame, saliencyMap, threshVal)
+        objectMap = computeObjectMap(frame, saliencyMap, sizeThreshVal)
 
         # display object map image
         cv2.imshow("object map", objectMap)
