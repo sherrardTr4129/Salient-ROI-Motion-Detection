@@ -83,25 +83,60 @@ def computeObjectMap(colorImage, saliencyMap, sizeThreshVal):
     # combine redundant overlapping rectangles
     groupedRects, weights = cv2.groupRectangles(goodRects, 0, 0)
 
-    # draw rectangles on image
+    # draw white rectangles on image
     for rect in groupedRects:
         x,y,w,h = rect
-        cv2.rectangle(colorImage,(x,y),(x+w,y+h),(0,0,255),-1)
+        cv2.rectangle(colorImage,(x,y),(x+w,y+h),(255,255,255),-1)
 
     return colorImage
 
-def isSalientROIMoving(curSaliencyFrame, prevSaliencyFrame):
-    pass
+def isSalientROIMoving(curSaliencyFrame, prevSaliencyFrame, numForMoving):
+
+    # compute binary image issolating drawn white rectangles
+    ret, threshCurFrame = cv2.threshold(curSaliencyFrame, 254, 255, cv2.THRESH_BINARY)
+    ret, threshLastFrame = cv2.threshold(prevSaliencyFrame, 254, 255, cv2.THRESH_BINARY)
+
+    # find edges in current image
+    currentFrameEdge = cv2.Canny(curSaliencyFrame, 120, 255)
+    
+    # compute difference image between two frames
+    diffImage = threshCurFrame - threshLastFrame
+
+    # compute number of white pixels in diffImage
+    countWhite = np.sum(diffImage == 255)
+
+    # determine if saliency ROI is moving
+    isMoving = False
+    if(countWhite > numForMoving):
+        isMoving = True
+    elif(countWhite < numForMoving and countWhite != 0):
+        isMoving = False
+    elif(countWhite == 0):
+        isMoving = None
+
+    print(countWhite)
+
+    # compute bitwise and between edge map and diffimage
+    movingEdges = cv2.bitwise_and(diffImage, currentFrameEdge)
+
+    return movingEdges, diffImage, isMoving
+
 if(__name__ == "__main__"):
     # initalize capture object
     capObj = cv2.VideoCapture(0)
 
-    # initialize constants
-    threshVal = 200
+    # initialize threshold constants
+    numForMoving = 5000
     sizeThreshVal = 4000
+
+    # initialize sequential frame place holders
     lastFrame = None
-    diffFrame = None
+    movingEdges = None
+    diffImage = None
+
+    # initialize control boolean variables
     firstIteration = True
+    isMoving = False
 
     while(True):
         # read frame from camera
@@ -115,13 +150,19 @@ if(__name__ == "__main__"):
 
         # compute object map
         objectMap = computeObjectMap(frame, saliencyMap, sizeThreshVal)
+        objectMapGray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # determine if salient object is moving
         if(not firstIteration):
-            isMoving = isSalientROIMoving(objectMap, lastFrame)
+            movingEdges, diffImage, isMoving = isSalientROIMoving(objectMapGray, lastFrame, numForMoving)
+        
+        if(isMoving == True):
+            cv2.putText(movingEdges, 'Moving!', (100,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+        elif(isMoving == False):
+            cv2.putText(movingEdges, 'Not Moving!', (100,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
         # update last frame
-        lastFrame = objectMap
+        lastFrame = objectMapGray
 
         # indicate we have been through the loop once and 
         # skip the display step for this iteration
@@ -129,8 +170,18 @@ if(__name__ == "__main__"):
             firstIteration = False
             continue
 
-        # display object map image
+        # display saliency map
+        cv2.imshow("saliency map", saliencyMap)
+
+        # display object map with ROIs drawn over
         cv2.imshow("object map", objectMap)
+        
+        # display difference image
+        cv2.imshow("difference image", diffImage)
+
+        # display moving edges image
+        cv2.imshow("moving edges image", movingEdges)
+
         if(cv2.waitKey(1) & 0xFF == ord('q')):
             break
 
