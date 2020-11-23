@@ -82,13 +82,22 @@ def computeObjectMap(colorImage, saliencyMap, sizeThreshVal):
     # draw bounding boxes around detected contours
     for cont in goodContours:
         x,y,w,h = cv2.boundingRect(cont)
-        cv2.rectangle(colorImage,(x,y),(x+w,y+h),(0,0,255),2)
+        cv2.rectangle(colorImage,(x,y),(x+w,y+h),(0,0,255),-1)
 
     return colorImage
 
+def isSalientROIMoving(curSaliencyFrame, prevSaliencyFrame):
+    pass
 if(__name__ == "__main__"):
+    # initalize capture object
     capObj = cv2.VideoCapture(0)
+
+    # initialize constants
+    threshVal = 200
     sizeThreshVal = 1000
+    lastFrame = None
+    diffFrame = None
+    firstIteration = True
 
     while(True):
         # read frame from camera
@@ -102,6 +111,19 @@ if(__name__ == "__main__"):
 
         # compute object map
         objectMap = computeObjectMap(frame, saliencyMap, sizeThreshVal)
+
+        # determine if salient object is moving
+        if(not firstIteration):
+            isMoving = isSalientROIMoving(objectMap, lastFrame)
+
+        # update last frame
+        lastFrame = objectMap
+
+        # indicate we have been through the loop once and 
+        # skip the display step for this iteration
+        if(firstIteration):
+            firstIteration = False
+            continue
 
         # display object map image
         cv2.imshow("object map", objectMap)
