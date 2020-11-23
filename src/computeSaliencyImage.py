@@ -73,11 +73,17 @@ def computeObjectMap(colorImage, saliencyMap, threshVal):
     goodContours = []
     for cont in contours:
         area = cv2.contourArea(cont)
-        if(area > 6000):
+        if(area > 7000):
             goodContours.append(cont)
 
     # draw contours on color image
     cv2.drawContours(colorImage, goodContours, -1, (0, 255, 0), 3)
+
+    # draw bounding boxes around detected contours
+    for cont in goodContours:
+        x,y,w,h = cv2.boundingRect(cont)
+        cv2.rectangle(colorImage,(x,y),(x+w,y+h),(0,0,255),2)
+
     return colorImage
 
 if(__name__ == "__main__"):
