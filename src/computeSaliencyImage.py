@@ -23,8 +23,12 @@ def computeSaliencyImg(img):
     blurKernel = np.ones((7,7), np.float32)/(7*7)
     logImageBlured = cv2.filter2D(logImage, -1, blurKernel)
 
-    # compute spectral residue image
-    spectralResidualImage = logImage - logImageBlured
+    # compute spectral residue image on log scale
+    spectralResidualImageLog = logImage - logImageBlured
+
+    # undo log scaling to real image component matches non-log scaling
+    # of phase/imaginary image component
+    spectralResidualImage = np.exp(spectralResidualImageLog)
 
     # move back to cartesian complex form
     fImageShifted[:,:,0], fImageShifted[:,:,1] = cv2.polarToCart(spectralResidualImage,imaginary)
@@ -60,18 +64,25 @@ def computeObjectMap(colorImage, saliencyMap, threshVal):
 
     # dilate image using dilateKernel. This should hopefully blow up the
     # detected saliency points to the point that they can be grouped together 
-    dilation = cv2.dilate(thresh, dilateKernel, iterations = 20)
+    dilation = cv2.dilate(thresh, dilateKernel, iterations = 14)
 
     # find contours in dilated image
     contours, hierarchy = cv2.findContours(dilation, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
+    # filter contours by size
+    goodContours = []
+    for cont in contours:
+        area = cv2.contourArea(cont)
+        if(area > 6000):
+            goodContours.append(cont)
+
     # draw contours on color image
-    cv2.drawContours(colorImage, contours, -1, (0, 255, 0), 3)
+    cv2.drawContours(colorImage, goodContours, -1, (0, 255, 0), 3)
     return colorImage
 
 if(__name__ == "__main__"):
     capObj = cv2.VideoCapture(0)
-    threshVal = 100
+    threshVal = 180
 
     while(True):
         # read frame from camera
