@@ -69,19 +69,23 @@ def computeObjectMap(colorImage, saliencyMap, sizeThreshVal):
     # find contours in dilated image
     contours, hierarchy = cv2.findContours(dilation, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-    # filter contours by size
+    # filter contours by size and create
+    # bounding rectangles from good contours
     goodContours = []
+    goodRects = []
     for cont in contours:
         area = cv2.contourArea(cont)
         if(area > sizeThreshVal):
             goodContours.append(cont)
+            x,y,w,h = cv2.boundingRect(cont)
+            goodRects.append([x,y,w,h])
 
-    # draw contours on color image
-    cv2.drawContours(colorImage, goodContours, -1, (0, 255, 0), 3)
+    # combine redundant overlapping rectangles
+    groupedRects, weights = cv2.groupRectangles(goodRects, 0, 0)
 
-    # draw bounding boxes around detected contours
-    for cont in goodContours:
-        x,y,w,h = cv2.boundingRect(cont)
+    # draw rectangles on image
+    for rect in groupedRects:
+        x,y,w,h = rect
         cv2.rectangle(colorImage,(x,y),(x+w,y+h),(0,0,255),-1)
 
     return colorImage
@@ -94,7 +98,7 @@ if(__name__ == "__main__"):
 
     # initialize constants
     threshVal = 200
-    sizeThreshVal = 1000
+    sizeThreshVal = 4000
     lastFrame = None
     diffFrame = None
     firstIteration = True
