@@ -5,10 +5,36 @@
 
 import cv2
 import glob
+import csv
 import numpy as np
 from matplotlib import pyplot as plt
 
+def writeCSV(iterPoints):
+    """
+    This function writes the numWhite values out to a CSV file.
+
+    params:
+        iterPoints (int[]): The list of numWhite points to write out
+    
+    returns:
+        None
+    """
+    with open("points.csv", "w") as csvFile:
+        writerObj = csv.writer(csvFile, delimiter = ",")
+        for i in range(len(iterPoints)):
+            writerObj.writerow([str(i), str(iterPoints[i])])
+
 def computeSaliencyImg(img):
+    """
+    This function computes the saliency map of a given image per the algorithm
+    put forth in the work of Xiaodi Hou et. al. 
+
+    params:
+        img (int8 image): the image to compute the saliency map for.
+    
+    returns:
+        saliencyMap (int8 image): the computed saliency map
+    """
     # compute dft and shift
     fImage = cv2.dft(np.float32(img), flags = cv2.DFT_COMPLEX_OUTPUT)
     fImageShifted = np.fft.fftshift(fImage)
@@ -52,6 +78,18 @@ def computeSaliencyImg(img):
     return saliencyMap
 
 def computeObjectMap(colorImage, saliencyMap, sizeThreshVal):
+    """
+    This function uses standard image processing techniques to create an object
+    map for highly salient ROIs within a given saliency map.
+
+    params:
+        colorImage (int32 image): the original color image taken from the webcam
+        saliencyMap (int8 image): the computed saliency map for the current color image
+        sizeThreshVal (int): the area in pixels for an ROI to be considered in the object map
+
+    returns:
+        colorImage (int32 image): the original color image with detected saliency ROIs drawn over.
+    """
 
     # create dilation kernel
     dilateKernel = np.ones((3,3),np.uint8)
@@ -91,7 +129,23 @@ def computeObjectMap(colorImage, saliencyMap, sizeThreshVal):
     return colorImage
 
 def isSalientROIMoving(curSaliencyFrame, prevSaliencyFrame, numForMoving):
+    """
+    This function uses the current saliency frame and the previous saliency frame to detect if
+    the ROI is moving. The algorithm to do this was adapted from the work of Jong-Hann Jean et. al
 
+    params:
+        curSaliencyFrame (int8 image): the object map computed from the current frame
+        prevSaliencyFrame (int8 image): the object map computed from the previous frame
+        numFroMoving (int): the threshold of white pixels within the subtracted edge image for the
+                            ROI to be considered moving.
+
+    returns:
+        movingEdges (binary image): the binary image representing moving salient edges in the video stream
+        diffImage (binary image): the result of the subtraction of the two object map images
+        isMoving (boolean): a boolean indicating whether or not the detected ROI is moving. returns None
+                            if nothing is detected in the image.
+        countWhite (int): the number of white edge pixels in the difference image between the two object maps.
+    """
     # compute binary image issolating drawn white rectangles
     ret, threshCurFrame = cv2.threshold(curSaliencyFrame, 254, 255, cv2.THRESH_BINARY)
     ret, threshLastFrame = cv2.threshold(prevSaliencyFrame, 254, 255, cv2.THRESH_BINARY)
@@ -114,19 +168,17 @@ def isSalientROIMoving(curSaliencyFrame, prevSaliencyFrame, numForMoving):
     elif(countWhite == 0):
         isMoving = None
 
-    print(countWhite)
-
     # compute bitwise and between edge map and diffimage
     movingEdges = cv2.bitwise_and(diffImage, currentFrameEdge)
 
-    return movingEdges, diffImage, isMoving
+    return movingEdges, diffImage, isMoving, countWhite
 
 if(__name__ == "__main__"):
     # initalize capture object
     capObj = cv2.VideoCapture(0)
 
     # initialize threshold constants
-    numForMoving = 5000
+    numForMoving = 3500
     sizeThreshVal = 4000
 
     # initialize sequential frame place holders
@@ -137,6 +189,9 @@ if(__name__ == "__main__"):
     # initialize control boolean variables
     firstIteration = True
     isMoving = False
+
+    # declare array to hold white count number for later processing
+    countWhiteArr = []
 
     while(True):
         # read frame from camera
@@ -154,7 +209,8 @@ if(__name__ == "__main__"):
 
         # determine if salient object is moving
         if(not firstIteration):
-            movingEdges, diffImage, isMoving = isSalientROIMoving(objectMapGray, lastFrame, numForMoving)
+            movingEdges, diffImage, isMoving, countWhite = isSalientROIMoving(objectMapGray, lastFrame, numForMoving)
+            countWhiteArr.append(countWhite)
         
         if(isMoving == True):
             cv2.putText(movingEdges, 'Moving!', (100,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
@@ -183,6 +239,8 @@ if(__name__ == "__main__"):
         cv2.imshow("moving edges image", movingEdges)
 
         if(cv2.waitKey(1) & 0xFF == ord('q')):
+            # write out points to csv before exiting
+            writeCSV(countWhiteArr)
             break
 
     cv2.destroyAllWindows()
