@@ -1,5 +1,5 @@
 # Salient ROI Motion Detection
-The individual algorithm implementation assignment for RBE526
+Uses fourier image processing techniques to compute a saliency map. From here, saliency maps generated from sequential frames are used to detect motion of salient ROI's within the video stream. 
 
 ## Usage
 Run the script using the following command:
