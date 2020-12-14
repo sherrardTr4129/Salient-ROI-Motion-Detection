@@ -1,4 +1,4 @@
-# RBE526-Individual-Alg
+# Salient ROI Motion Detection
 The individual algorithm implementation assignment for RBE526
 
 ## usage
