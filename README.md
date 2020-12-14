@@ -1,7 +1,7 @@
 # Salient ROI Motion Detection
 The individual algorithm implementation assignment for RBE526
 
-## usage
+## Usage
 Run the script using the following command:
 ```bash
 python3 computeSaliencyImage.py 
